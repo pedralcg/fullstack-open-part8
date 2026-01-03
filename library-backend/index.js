@@ -102,10 +102,18 @@ const typeDefs = `
     genres: [String!]!
   }
 
+  type Author {
+  name: String!
+  id: ID!
+  born: Int
+  bookCount: Int!
+}
+
   type Query {
     bookCount: Int!
     authorCount: Int!
     allBooks: [Book!]!
+    allAuthors: [Author!]!
   }
 `;
 
@@ -114,6 +122,14 @@ const resolvers = {
     bookCount: () => books.length,
     authorCount: () => authors.length,
     allBooks: () => books,
+    allAuthors: () => authors,
+  },
+  Author: {
+    // El primer parámetro 'root' contiene los datos del autor que se está procesando
+    bookCount: (root) => {
+      // Filtramos el array de libros por el nombre del autor actual
+      return books.filter((b) => b.author === root.name).length;
+    },
   },
 };
 
