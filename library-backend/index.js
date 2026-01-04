@@ -123,6 +123,10 @@ const typeDefs = `
       published: Int!
       genres: [String!]!
     ): Book
+    editAuthor(
+      name: String!
+      setBornTo: Int!
+    ): Author
   }
 `;
 
@@ -180,6 +184,22 @@ const resolvers = {
       books = books.concat(newBook);
 
       return newBook;
+    },
+
+    editAuthor: (root, args) => {
+      const author = authors.find((a) => a.name === args.name);
+
+      if (!author) {
+        return null;
+      }
+
+      // Creamos una copia actualizada del autor
+      const updatedAuthor = { ...author, born: args.setBornTo };
+
+      // Actualizamos el array global de autores
+      authors = authors.map((a) => (a.name === args.name ? updatedAuthor : a));
+
+      return updatedAuthor;
     },
   },
 };
