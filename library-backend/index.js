@@ -115,6 +115,15 @@ const typeDefs = `
     allBooks(author: String, genre: String): [Book!]!
     allAuthors: [Author!]!
   }
+
+  type Mutation {
+    addBook(
+      title: String!
+      author: String!
+      published: Int!
+      genres: [String!]!
+    ): Book
+  }
 `;
 
 const resolvers = {
@@ -147,6 +156,30 @@ const resolvers = {
     bookCount: (root) => {
       // Filtramos el array de libros por el nombre del autor actual
       return books.filter((b) => b.author === root.name).length;
+    },
+  },
+
+  Mutation: {
+    addBook: (root, args) => {
+      // 1. Verificar si el autor ya existe
+      const authorExists = authors.find((a) => a.name === args.author);
+
+      if (!authorExists) {
+        const newAuthor = {
+          name: args.author,
+          id: Math.random().toString(36).substring(2, 15),
+        };
+        authors = authors.concat(newAuthor);
+      }
+
+      // 2. Crear y guardar el nuevo libro
+      const newBook = {
+        ...args,
+        id: Math.random().toString(36).substring(2, 15),
+      };
+      books = books.concat(newBook);
+
+      return newBook;
     },
   },
 };
