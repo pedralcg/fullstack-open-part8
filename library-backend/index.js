@@ -112,7 +112,7 @@ const typeDefs = `
   type Query {
     bookCount: Int!
     authorCount: Int!
-    allBooks(author: String): [Book!]!
+    allBooks(author: String, genre: String): [Book!]!
     allAuthors: [Author!]!
   }
 `;
@@ -122,13 +122,24 @@ const resolvers = {
     bookCount: () => books.length,
     authorCount: () => authors.length,
     allBooks: (root, args) => {
-      // Si no se proporciona autor, devolvemos todos los libros
-      if (!args.author) {
-        return books;
+      let filteredBooks = books;
+
+      // 1. Filtrar por autor si el argumento existe
+      if (args.author) {
+        filteredBooks = filteredBooks.filter((b) => b.author === args.author);
       }
-      // Si hay autor, filtramos el array por el nombre exacto
-      return books.filter((b) => b.author === args.author);
+
+      // 2. Filtrar por género si el argumento existe
+      if (args.genre) {
+        // Usamos .includes() porque 'genres' es una lista (array) dentro de cada libro
+        filteredBooks = filteredBooks.filter((b) =>
+          b.genres.includes(args.genre)
+        );
+      }
+
+      return filteredBooks;
     },
+
     allAuthors: () => authors,
   },
   Author: {
