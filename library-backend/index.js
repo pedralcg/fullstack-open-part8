@@ -1,5 +1,6 @@
 const { ApolloServer } = require("@apollo/server");
 const { startStandaloneServer } = require("@apollo/server/standalone");
+const { GraphQLError } = require("graphql");
 
 const Author = require("./models/author");
 const Book = require("./models/book");
@@ -89,26 +90,59 @@ const resolvers = {
 
   Mutation: {
     addBook: async (root, args) => {
-      // 1. Buscamos si el autor ya existe por su nombre
       let author = await Author.findOne({ name: args.author });
-      // 2. Si no existe, lo creamos
+
       if (!author) {
         author = new Author({ name: args.author });
-        await author.save();
+        try {
+          await author.save();
+        } catch (error) {
+          throw new GraphQLError("Saving author failed", {
+            extensions: {
+              code: "BAD_USER_INPUT",
+              invalidArgs: args.author,
+              error,
+            },
+          });
+        }
       }
-      // 3. Creamos el libro usando el ID del autor encontrado/creado
+
       const book = new Book({ ...args, author: author._id });
-      return book.save();
+      try {
+        await book.save();
+      } catch (error) {
+        throw new GraphQLError("Saving book failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.title,
+            error,
+          },
+        });
+      }
+
+      // Para devolver el objeto completo incluyendo el autor poblado
+      return book.populate("author");
     },
 
     editAuthor: async (root, args) => {
       const author = await Author.findOne({ name: args.name });
-      if (!author) {
-        return null;
-      }
+      if (!author) return null;
 
       author.born = args.setBornTo;
-      return author.save();
+
+      try {
+        await author.save();
+      } catch (error) {
+        throw new GraphQLError("Updating birthyear failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.name,
+            error,
+          },
+        });
+      }
+
+      return author;
     },
   },
 };
