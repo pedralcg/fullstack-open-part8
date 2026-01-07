@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
+import Select from "react-select";
 import { ALL_AUTHORS, EDIT_AUTHOR } from "../queries";
 
 const Authors = (props) => {
-  const [name, setName] = useState("");
+  const [selectedOption, setSelectedOption] = useState(null);
   const [born, setBorn] = useState("");
 
   const result = useQuery(ALL_AUTHORS);
@@ -25,13 +26,31 @@ const Authors = (props) => {
 
   const authors = result.data.allAuthors;
 
+  // Transformamos los autores para el select
+  const options = authors.map((a) => ({
+    value: a.name,
+    label: a.name,
+  }));
+
   const submit = async (event) => {
     event.preventDefault();
 
-    changeBorn({ variables: { name, setBornTo: parseInt(born) } });
+    // Evita que la app se rompa si no hay autor o año
+    if (!selectedOption || !born) {
+      console.log("Please select an author and provide a birth year");
+      return;
+    }
 
-    setName("");
+    changeBorn({
+      variables: {
+        name: selectedOption.value,
+        setBornTo: parseInt(born),
+      },
+    });
+
+    // Devolvemos los estados a su valor inicial
     setBorn("");
+    setSelectedOption(null);
   };
 
   return (
@@ -56,11 +75,12 @@ const Authors = (props) => {
 
       <h3>Set birthyear</h3>
       <form onSubmit={submit}>
-        <div>
-          name
-          <input
-            value={name}
-            onChange={({ target }) => setName(target.value)}
+        <div style={{ marginBottom: "10px", width: "300px" }}>
+          <Select
+            value={selectedOption}
+            onChange={setSelectedOption}
+            options={options}
+            placeholder="Select author..."
           />
         </div>
         <div>
