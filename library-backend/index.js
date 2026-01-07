@@ -1,6 +1,25 @@
 const { ApolloServer } = require("@apollo/server");
 const { startStandaloneServer } = require("@apollo/server/standalone");
 
+const Author = require("./models/author");
+const Book = require("./models/book");
+
+const mongoose = require("mongoose");
+require("dotenv").config();
+
+const MONGODB_URI = process.env.MONGODB_URI;
+
+mongoose.set("strictQuery", false);
+
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => {
+    console.log("✅ connected to MongoDB");
+  })
+  .catch((error) => {
+    console.log("❌ error connection to MongoDB:", error.message);
+  });
+
 let authors = [
   {
     name: "Robert Martin",
@@ -97,7 +116,7 @@ const typeDefs = `
   type Book {
     title: String!
     published: Int!
-    author: String!
+    author: Author! # Ahora devuelve el objeto Author completo
     id: ID!
     genres: [String!]!
   }
@@ -132,75 +151,39 @@ const typeDefs = `
 
 const resolvers = {
   Query: {
-    bookCount: () => books.length,
-    authorCount: () => authors.length,
-    allBooks: (root, args) => {
-      let filteredBooks = books;
-
-      // 1. Filtrar por autor si el argumento existe
-      if (args.author) {
-        filteredBooks = filteredBooks.filter((b) => b.author === args.author);
-      }
-
-      // 2. Filtrar por género si el argumento existe
-      if (args.genre) {
-        // Usamos .includes() porque 'genres' es una lista (array) dentro de cada libro
-        filteredBooks = filteredBooks.filter((b) =>
-          b.genres.includes(args.genre)
-        );
-      }
-
-      return filteredBooks;
+    bookCount: async () => Book.collection.countDocuments(),
+    authorCount: async () => Author.collection.countDocuments(),
+    allBooks: async () => {
+      // El enunciado dice que el campo author de un libro no tiene que funcionar todavía,
+      // pero para que no de error, devolvemos los libros.
+      return Book.find({});
     },
-
-    allAuthors: () => authors,
+    allAuthors: async () => Author.find({}),
   },
-  Author: {
-    // El primer parámetro 'root' contiene los datos del autor que se está procesando
-    bookCount: (root) => {
-      // Filtramos el array de libros por el nombre del autor actual
-      return books.filter((b) => b.author === root.name).length;
+
+  Book: {
+    // Como en la BD 'author' es un ID, buscamos el objeto Author
+    author: async (root) => {
+      return Author.findById(root.author);
     },
   },
 
   Mutation: {
-    addBook: (root, args) => {
-      // 1. Verificar si el autor ya existe
-      const authorExists = authors.find((a) => a.name === args.author);
+    addBook: async (root, args) => {
+      // 1. Buscamos si el autor ya existe por su nombre
+      let author = await Author.findOne({ name: args.author });
 
-      if (!authorExists) {
-        const newAuthor = {
-          name: args.author,
-          id: Math.random().toString(36).substring(2, 15),
-        };
-        authors = authors.concat(newAuthor);
-      }
-
-      // 2. Crear y guardar el nuevo libro
-      const newBook = {
-        ...args,
-        id: Math.random().toString(36).substring(2, 15),
-      };
-      books = books.concat(newBook);
-
-      return newBook;
-    },
-
-    editAuthor: (root, args) => {
-      const author = authors.find((a) => a.name === args.name);
-
+      // 2. Si no existe, lo creamos
       if (!author) {
-        return null;
+        author = new Author({ name: args.author });
+        await author.save();
       }
 
-      // Creamos una copia actualizada del autor
-      const updatedAuthor = { ...author, born: args.setBornTo };
-
-      // Actualizamos el array global de autores
-      authors = authors.map((a) => (a.name === args.name ? updatedAuthor : a));
-
-      return updatedAuthor;
+      // 3. Creamos el libro usando el ID del autor encontrado/creado
+      const book = new Book({ ...args, author: author._id });
+      return book.save();
     },
+    // editAuthor se queda pendiente según el enunciado
   },
 };
 
