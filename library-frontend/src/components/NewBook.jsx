@@ -13,7 +13,13 @@ const NewBook = (props) => {
   const [addBook] = useMutation(CREATE_BOOK, {
     refetchQueries: [{ query: ALL_BOOKS }, { query: ALL_AUTHORS }],
     onError: (error) => {
-      console.log(error.graphQLErrors[0].message);
+      // Verificamos si existen errores de GraphQL específicos (como validación de Mongoose)
+      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        console.log(error.graphQLErrors[0].message);
+      } else {
+        // Si es un error de red o un 400 Bad Request genérico (como falta de token)
+        console.log(error.message);
+      }
     },
   });
 
