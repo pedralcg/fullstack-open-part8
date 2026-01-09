@@ -3,7 +3,16 @@ import { ALL_BOOKS, ME } from "../queries";
 
 const Recommendations = ({ show }) => {
   const userResult = useQuery(ME);
-  const booksResult = useQuery(ALL_BOOKS);
+
+  // Obtenemos el género favorito si la consulta de usuario terminó
+  const favoriteGenre = userResult.data?.me?.favoriteGenre;
+
+  // Realizamos la consulta de libros filtrada por el género favorito del servidor
+  const booksResult = useQuery(ALL_BOOKS, {
+    variables: { genre: favoriteGenre },
+    skip: !favoriteGenre, // No ejecuta la consulta hasta tener el género
+    fetchPolicy: "cache-and-network", // Asegura datos frescos tras agregar libros
+  });
 
   if (!show) return null;
 
@@ -12,19 +21,18 @@ const Recommendations = ({ show }) => {
     return <div>loading...</div>;
   }
 
-  const user = userResult.data.me;
-  const books = booksResult.data.allBooks;
+  // Manejo de caso donde el usuario no tiene género favorito o no está logueado
+  if (!userResult.data?.me) {
+    return <div>please log in to see recommendations</div>;
+  }
 
-  // Filtrado en React usando el género favorito del usuario
-  const recommendedBooks = books.filter((b) =>
-    b.genres.includes(user.favoriteGenre)
-  );
+  const booksToShow = booksResult.data.allBooks;
 
   return (
     <div>
       <h2>recommendations</h2>
       <p>
-        books in your favorite genre <strong>{user.favoriteGenre}</strong>
+        books in your favorite genre <strong>{favoriteGenre}</strong>
       </p>
 
       <table>
@@ -34,7 +42,7 @@ const Recommendations = ({ show }) => {
             <th>author</th>
             <th>published</th>
           </tr>
-          {recommendedBooks.map((a) => (
+          {booksToShow.map((a) => (
             <tr key={a.id}>
               <td>{a.title}</td>
               <td>{a.author.name}</td>

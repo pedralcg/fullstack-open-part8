@@ -8,6 +8,9 @@ const Books = (props) => {
   // Usamos la propiedad 'variables' para filtrar desde el servidor
   const result = useQuery(ALL_BOOKS, {
     variables: { genre: genre === "all genres" ? undefined : genre },
+    // 'cache-and-network' asegura que muestre lo que hay en caché
+    // pero SIEMPRE haga una petición al servidor para actualizar.
+    fetchPolicy: "cache-and-network",
   });
 
   // Necesitamos obtener la lista completa una vez para saber qué botones de género mostrar
