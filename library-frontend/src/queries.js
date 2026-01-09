@@ -65,3 +65,12 @@ export const EDIT_AUTHOR = gql`
     }
   }
 `;
+
+export const ME = gql`
+  query {
+    me {
+      username
+      favoriteGenre
+    }
+  }
+`;
