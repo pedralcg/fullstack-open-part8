@@ -4,35 +4,30 @@ import { ALL_BOOKS } from "../queries";
 
 const Books = (props) => {
   const [genre, setGenre] = useState("all genres");
-  const result = useQuery(ALL_BOOKS);
 
-  if (!props.show) {
-    return null;
-  }
+  // Usamos la propiedad 'variables' para filtrar desde el servidor
+  const result = useQuery(ALL_BOOKS, {
+    variables: { genre: genre === "all genres" ? undefined : genre },
+  });
 
-  if (result.loading) {
-    return <div>loading...</div>;
-  }
+  // Necesitamos obtener la lista completa una vez para saber qué botones de género mostrar
+  const allBooksResult = useQuery(ALL_BOOKS);
 
-  const books = result.data.allBooks;
+  if (!props.show) return null;
+  if (result.loading || allBooksResult.loading) return <div>loading...</div>;
 
-  // Extraer todos los géneros únicos de todos los libros
-  const genres = ["all genres", ...new Set(books.flatMap((b) => b.genres))];
+  const booksToShow = result.data.allBooks;
+  const allBooks = allBooksResult.data.allBooks;
 
-  // Filtrar la lista basada en el estado 'genre'
-  const booksToShow =
-    genre === "all genres"
-      ? books
-      : books.filter((b) => b.genres.includes(genre));
+  // Extraemos géneros de la lista completa para los botones
+  const genres = ["all genres", ...new Set(allBooks.flatMap((b) => b.genres))];
 
   return (
     <div>
       <h2>books</h2>
-      {genre !== "all genres" && (
-        <p>
-          in genre <strong>{genre}</strong>
-        </p>
-      )}
+      <p>
+        in genre <strong>{genre}</strong>
+      </p>
 
       <table>
         <tbody>

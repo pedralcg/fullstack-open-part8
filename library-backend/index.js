@@ -88,11 +88,11 @@ const resolvers = {
     allAuthors: async () => Author.find({}),
     allBooks: async (root, args) => {
       const query = {};
+      // Si args.genre existe (no es null ni undefined), lo añadimos al filtro
       if (args.genre) {
         query.genres = { $in: [args.genre] };
       }
-      // El enunciado dice que el parámetro 'author' no es necesario todavía
-      return Book.find(query);
+      return Book.find(query).populate("author");
     },
     me: (root, args, context) => {
       return context.currentUser;
