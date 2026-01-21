@@ -1,5 +1,20 @@
 const { ApolloServer } = require("@apollo/server");
-const { startStandaloneServer } = require("@apollo/server/standalone");
+
+const { expressMiddleware } = require("@apollo/server/express4");
+const {
+  ApolloServerPluginDrainHttpServer,
+} = require("@apollo/server/plugin/drainHttpServer");
+const { makeExecutableSchema } = require("@graphql-tools/schema");
+const express = require("express");
+const http = require("http");
+const { WebSocketServer } = require("ws");
+const { useServer } = require("graphql-ws/use/ws");
+
+const { PubSub } = require("graphql-subscriptions");
+const pubsub = new PubSub();
+//! Depuración: Añade esto justo después de crear pubsub
+console.log("¿asyncIterator existe?:", typeof pubsub.asyncIterator);
+
 const { GraphQLError } = require("graphql");
 
 const Author = require("./models/author");
@@ -8,6 +23,7 @@ const User = require("./models/user");
 const jwt = require("jsonwebtoken");
 
 const mongoose = require("mongoose");
+const cors = require("cors");
 require("dotenv").config();
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -79,6 +95,10 @@ type User {
       setBornTo: Int!
     ): Author
   }
+
+  type Subscription {
+    bookAdded: Book!
+  }
 `;
 
 const resolvers = {
@@ -107,12 +127,13 @@ const resolvers = {
     },
   },
 
-  Book: {
-    // Como en la BD 'author' es un ID, buscamos el objeto Author
-    author: async (root) => {
-      return Author.findById(root.author);
-    },
-  },
+  // ELIMINADO EL RESOLVER Book: { author: ... } porque ya usamos .populate("author") en las consultas
+  // Book: {
+  //   // Como en la BD 'author' es un ID, buscamos el objeto Author
+  //   author: async (root) => {
+  //     return Author.findById(root.author);
+  //   },
+  // },
 
   Mutation: {
     createUser: async (root, args) => {
@@ -185,8 +206,12 @@ const resolvers = {
         });
       }
 
-      // Para devolver el objeto completo incluyendo el autor poblado
-      return book.populate("author");
+      const savedBook = await book.populate("author");
+
+      // PUBLICAR NOTIFICACIÓN
+      pubsub.publish("BOOK_ADDED", { bookAdded: savedBook });
+
+      return savedBook;
     },
 
     editAuthor: async (root, args, context) => {
@@ -217,6 +242,13 @@ const resolvers = {
       return author;
     },
   },
+
+  // NUEVO RESOLVER DE SUSCRIPCIÓN
+  Subscription: {
+    bookAdded: {
+      subscribe: () => pubsub.asyncIterator("BOOK_ADDED"),
+    },
+  },
 };
 
 const server = new ApolloServer({
@@ -226,20 +258,59 @@ const server = new ApolloServer({
 
 // Función para arrancar el servidor
 const start = async () => {
-  const { url } = await startStandaloneServer(server, {
-    listen: { port: 4000 },
-    context: async ({ req }) => {
-      const auth = req ? req.headers.authorization : null;
-      if (auth && auth.startsWith("Bearer ")) {
-        const decodedToken = jwt.verify(auth.substring(7), process.env.SECRET);
-        const currentUser = await User.findById(decodedToken.id);
-        return { currentUser };
-      }
-    },
+  const app = express();
+  const httpServer = http.createServer(app);
+
+  const schema = makeExecutableSchema({ typeDefs, resolvers });
+
+  const wsServer = new WebSocketServer({
+    server: httpServer,
+    path: "/",
   });
 
-  console.log(`Server ready at ${url}`);
+  const serverCleanup = useServer({ schema }, wsServer);
+
+  const server = new ApolloServer({
+    schema,
+    plugins: [
+      ApolloServerPluginDrainHttpServer({ httpServer }),
+      {
+        async serverWillStart() {
+          return {
+            async drainServer() {
+              await serverCleanup.dispose();
+            },
+          };
+        },
+      },
+    ],
+  });
+
+  await server.start();
+
+  app.use(
+    "/",
+    cors(),
+    express.json(),
+    expressMiddleware(server, {
+      context: async ({ req }) => {
+        const auth = req ? req.headers.authorization : null;
+        if (auth && auth.startsWith("Bearer ")) {
+          const decodedToken = jwt.verify(
+            auth.substring(7),
+            process.env.SECRET
+          );
+          const currentUser = await User.findById(decodedToken.id);
+          return { currentUser };
+        }
+      },
+    })
+  );
+
+  const PORT = 4000;
+  httpServer.listen(PORT, () =>
+    console.log(`Server is now running on http://localhost:${PORT}`)
+  );
 };
 
-// Ejecutamos la función de arranque
 start();
