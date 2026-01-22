@@ -12,8 +12,6 @@ const { useServer } = require("graphql-ws/use/ws");
 
 const { PubSub } = require("graphql-subscriptions");
 const pubsub = new PubSub();
-//! Depuración: Añade esto justo después de crear pubsub
-console.log("¿asyncIterator existe?:", typeof pubsub.asyncIterator);
 
 const { GraphQLError } = require("graphql");
 
@@ -298,18 +296,18 @@ const start = async () => {
         if (auth && auth.startsWith("Bearer ")) {
           const decodedToken = jwt.verify(
             auth.substring(7),
-            process.env.SECRET
+            process.env.SECRET,
           );
           const currentUser = await User.findById(decodedToken.id);
           return { currentUser };
         }
       },
-    })
+    }),
   );
 
   const PORT = 4000;
   httpServer.listen(PORT, () =>
-    console.log(`Server is now running on http://localhost:${PORT}`)
+    console.log(`Server is now running on http://localhost:${PORT}`),
   );
 };
 

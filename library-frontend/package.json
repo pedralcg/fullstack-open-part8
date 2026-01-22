@@ -10,8 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@apollo/client": "^3.8.8",
+    "@apollo/client": "^3.14.0",
     "graphql": "^16.8.1",
+    "graphql-ws": "^6.0.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-select": "^5.10.2"
