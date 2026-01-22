@@ -103,7 +103,25 @@ const resolvers = {
   Query: {
     bookCount: async () => Book.collection.countDocuments(),
     authorCount: async () => Author.collection.countDocuments(),
-    allAuthors: async () => Author.find({}),
+    allAuthors: async () => {
+      return Author.aggregate([
+        {
+          // 1. Unimos la colección de autores con la de libros (como un JOIN)
+          $lookup: {
+            from: "books", // Nombre de la colección en MongoDB (suele ser en minúscula y plural)
+            localField: "_id", // El ID del autor
+            foreignField: "author", // El campo 'author' dentro de los libros
+            as: "books", // Nombre temporal para el array de libros encontrados
+          },
+        },
+        {
+          // 2. Creamos el campo bookCount contando el tamaño del array anterior
+          $addFields: {
+            bookCount: { $size: "$books" },
+          },
+        },
+      ]);
+    },
     allBooks: async (root, args) => {
       const query = {};
       // Si args.genre existe (no es null ni undefined), lo añadimos al filtro
@@ -118,10 +136,10 @@ const resolvers = {
   },
 
   Author: {
-    bookCount: async (root) => {
-      // 'root' es el autor que se está procesando
-      // Contamos cuántos libros tienen su ID en el campo 'author'
-      return Book.find({ author: root._id }).countDocuments();
+    bookCount: (root) => {
+      // Si la agregación funcionó, root ya tiene la propiedad bookCount
+      // Si no, devolvemos 0 para evitar errores
+      return root.bookCount || 0;
     },
   },
 
