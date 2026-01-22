@@ -5,7 +5,8 @@ import NewBook from "./components/NewBook";
 import LoginForm from "./components/LoginForm";
 import Recommendations from "./components/Recommendations";
 import { useApolloClient, useSubscription } from "@apollo/client";
-import { BOOK_ADDED } from "./queries";
+import { BOOK_ADDED, ALL_BOOKS } from "./queries";
+import { updateCache } from "./cacheHelpers";
 
 const App = () => {
   const [token, setToken] = useState(() => {
@@ -27,6 +28,9 @@ const App = () => {
     onData: ({ data }) => {
       const addedBook = data.data.bookAdded;
       window.alert(`Nuevo libro añadido: ${addedBook.title}`);
+
+      // ACTUALIZACIÓN DE LA CACHÉ
+      updateCache(client.cache, { query: ALL_BOOKS }, addedBook);
     },
   });
 
